@@ -15,8 +15,7 @@ import { AppDispatch, selectMainViewJumbotron, setMainViewJumbotron, useTypedSel
 import useMainViewJumbotron from '../Hooks/useMainViewJumbotron'
 
 export const Startpage = () => {
-    const dispatch = useDispatch<AppDispatch>()
-    const mainViewJumbotron = useTypedSelector(selectMainViewJumbotron)
+    // Hooks
     const { properties, readProperties } = usePropertiesContext()
     const { handleScroll, handleFocusEffect } = useMainViewJumbotron({
         title: 'CasaNova',
@@ -24,16 +23,23 @@ export const Startpage = () => {
         visibility: 100
     })
 
+    // Redux
+    const dispatch = useDispatch<AppDispatch>()
+    const mainViewJumbotron = useTypedSelector(selectMainViewJumbotron)
+
+    // State
     const [numberOfProperties, setNumberOfProperties] = useState<number>(0)
     const [refreshing, setRefreshing] = useState(false)
-
-    useEffect(() => {
-        readProperties()
-    }, [])
-
+    
+    // Methods
     const onRefresh = useCallback(() => {
         setRefreshing(true)
         readProperties(true)
+    }, [])
+
+    // Effects
+    useEffect(() => {
+        readProperties()
     }, [])
 
     useEffect(() => {
@@ -49,6 +55,7 @@ export const Startpage = () => {
         }, [dispatch])
     )
 
+    // Render
     return (
         <ScrollView
             style={styles.pageContent}

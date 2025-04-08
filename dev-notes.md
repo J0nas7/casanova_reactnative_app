@@ -12,6 +12,8 @@ npm install:
     react-native-svg @fortawesome/react-native-fontawesome @fortawesome/fontawesome-svg-core @fortawesome/free-solid-svg-icons @fortawesome/free-brands-svg-icons @fortawesome/free-regular-svg-icons
 
     @react-navigation/bottom-tabs react-native-paper
+
+    @react-native-picker/picker
     
 
 

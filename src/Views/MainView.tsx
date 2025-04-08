@@ -17,6 +17,7 @@ import { useDispatch } from 'react-redux'
 import { MenuView } from './MenuView'
 import { MessagesOverview } from './MessagesOverview'
 import { MessageView } from './MessageView'
+import EditProperty from './EditProperty'
 
 export type RootStackParamList = {
     Tabs: undefined
@@ -28,6 +29,7 @@ export type RootStackParamList = {
     "My Properties": undefined
     PropertyDetails: { propertyId: string };
     MessageConversation: { propertyId: string };
+    EditProperty: { propertyId: string };
 }
 
 const Tab = createBottomTabNavigator()
@@ -97,6 +99,7 @@ const MenuStackNavigator: React.FC<MenuStackProps> = ({ name, component }) => {
         <MenuStack.Navigator screenOptions={{ headerShown: false }}>
             <MenuStack.Screen name={name} component={component} />
             <MenuStack.Screen name="PropertyDetails" component={PropertyDetails} />
+            <MenuStack.Screen name="EditProperty" component={EditProperty} />
             <MenuStack.Screen name="My Properties" component={UserProperties} />
             <MenuStack.Screen name="MessageConversation" component={MessageView} />
         </MenuStack.Navigator>

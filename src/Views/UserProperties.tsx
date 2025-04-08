@@ -25,7 +25,6 @@ export const UserProperties: React.FC = () => {
     })
 
     // Redux (Authenticated User)
-    const mainViewJumbotron = useTypedSelector(selectMainViewJumbotron);
     const authUser = useTypedSelector(selectAuthUser);
 
     // Local State
@@ -60,12 +59,12 @@ export const UserProperties: React.FC = () => {
         await removeProperty(property.Property_ID, authUser.User_ID);
         await readPropertiesByUserId(authUser.User_ID);
     };
-    
+
     // This function will be called when the user pulls down to refresh
     const [refreshing, setRefreshing] = useState(false);
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        
+
         if (authUser?.User_ID) await readPropertiesByUserId(authUser.User_ID, true)
     }, []);
 
@@ -117,7 +116,25 @@ export const UserProperties: React.FC = () => {
                 keyExtractor={(item) => (item.Property_ID ?? '').toString()}
                 numColumns={1}
                 renderItem={({ item }) => (
-                    <PropertyCard property={item} />
+                    <View style={styles.propertyCardContainer}>
+                        <PropertyCard property={item} />
+                        <View style={styles.actionButtons}>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('EditProperty', { propertyId: (item.Property_ID ?? "").toString() })}
+                                style={styles.actionButton}
+                            >
+                                <FontAwesomeIcon icon={faPencil} />
+                                <Text>Edit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => handleDelete(item)}
+                                style={styles.actionButton}
+                            >
+                                <FontAwesomeIcon icon={faTrashCan} />
+                                <Text>Delete</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 )}
                 onScroll={handleScroll}
                 refreshControl={
@@ -152,6 +169,16 @@ const styles = StyleSheet.create({
         fontSize: 26,
         fontWeight: 'bold',
         marginBottom: 16
+    },
+    propertyCardContainer: {
+        backgroundColor: 'white',
+        padding: 16,
+        borderRadius: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 2,
+        marginBottom: 16,
     },
     actionButtons: {
         flexDirection: 'row',
