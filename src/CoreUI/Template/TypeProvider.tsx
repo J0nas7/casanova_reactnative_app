@@ -10,7 +10,7 @@ const providers: any[] = [
     // UsersProvider,
     PropertiesProvider,
     // // PropertyImagesProvider,
-    // MessagesProvider,
+    MessagesProvider,
     // // FavoritesProvider,
 ]
 

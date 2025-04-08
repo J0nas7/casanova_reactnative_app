@@ -1,7 +1,7 @@
 npm install:
     @reduxjs/toolkit react-redux redux-thunk
     @react-navigation/native
-    @react-navigation/stack
+    @react-navigation/stack @react-navigation/native-stack
     axios
     @react-native-async-storage/async-storage
 

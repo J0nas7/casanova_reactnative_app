@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, Button, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent, RefreshControl } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
-import { faHouseChimney, faPencil, faTrashCan } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faHouseChimney, faPencil, faTrashCan } from "@fortawesome/free-solid-svg-icons";
 
 // Internal Imports
 import { usePropertiesContext } from "@/src/Contexts";
@@ -19,6 +19,7 @@ export const UserProperties: React.FC = () => {
     const { propertiesById, readPropertiesByUserId, removeProperty } = usePropertiesContext()
     const { defaultJumboState, setDefaultJumboState, handleScroll } = useMainViewJumbotron({
         title: `My Listings (0)`,
+        faIcon: faArrowLeft,
         htmlIcon: '🔑',
         visibility: 100
     })

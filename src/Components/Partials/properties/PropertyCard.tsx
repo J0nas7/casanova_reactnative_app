@@ -22,7 +22,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
 
     const handlePress = () => {
         if (property.Property_ID) {
-            navigation.navigate('PropertyDetails', { propertyId: property.Property_ID.toString() });
+            navigation.navigate('PropertyDetails', { propertyId: property.Property_ID.toString() })
         }
     };
 

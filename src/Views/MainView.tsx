@@ -3,9 +3,10 @@ import React, { use, useEffect } from 'react'
 import { View, StyleSheet, SafeAreaView, ActivityIndicator, Text, TouchableOpacity } from 'react-native'
 import { NavigationContainer, useNavigation } from '@react-navigation/native'
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
-import { faEnvelope, faHome, faKey, faSearch, faUser } from '@fortawesome/free-solid-svg-icons'
+import { faBars, faEnvelope, faHome, faKey, faSearch, faUser } from '@fortawesome/free-solid-svg-icons'
 
 // Internal
 import { AppDispatch, selectAuthUser, selectMainViewJumbotron, setMainViewJumbotron, useTypedSelector } from '../Redux'
@@ -13,18 +14,25 @@ import { useAuth } from '@/src/Hooks'
 import { LoginView, SearchListingsView, Startpage, UserProperties } from './'
 import PropertyDetails from './PropertyDetails'
 import { useDispatch } from 'react-redux'
+import { MenuView } from './MenuView'
+import { MessagesOverview } from './MessagesOverview'
+import { MessageView } from './MessageView'
 
 export type RootStackParamList = {
     Tabs: undefined
     Home: undefined
     Search: undefined
     Login: undefined
+    Profile: undefined
+    Logout: undefined
     "My Properties": undefined
     PropertyDetails: { propertyId: string };
+    MessageConversation: { propertyId: string };
 }
 
 const Tab = createBottomTabNavigator()
 const Stack = createStackNavigator<RootStackParamList>()
+const MenuStack = createNativeStackNavigator();
 
 const BottomTabs: React.FC = () => {
     const { } = useAuth()
@@ -45,8 +53,8 @@ const BottomTabs: React.FC = () => {
                         iconName = faUser
                     } else if (route.name === 'Messages') {
                         iconName = faEnvelope
-                    } else if (route.name === 'My Properties') {
-                        iconName = faKey
+                    } else if (route.name === 'Menu') {
+                        iconName = faBars
                     }
 
                     return <FontAwesomeIcon icon={iconName} size={size} color={color} />;
@@ -60,16 +68,20 @@ const BottomTabs: React.FC = () => {
                 headerShown: false,  // Hide header title for all screens in this navigator
             })}
         >
-            <Tab.Screen 
-                name="Home" 
-                component={Startpage} 
-                // options={{ unmountOnBlur: true }} // this removes the screen from memory when you navigate away
-            />
-            <Tab.Screen name="Search" component={SearchListingsView} />
+            <Tab.Screen name="Home">
+                {() => <MenuStackNavigator name="Home" component={Startpage} />}
+            </Tab.Screen>
+            <Tab.Screen name="Search">
+                {() => <MenuStackNavigator name="Search" component={SearchListingsView} />}
+            </Tab.Screen>
             {authUser ? (
                 <>
-                    {/* <Tab.Screen name="Messages" component={MessagesView} /> */}
-                    <Tab.Screen name="My Properties" component={UserProperties} />
+                    <Tab.Screen name="Messages">
+                        {() => <MenuStackNavigator name="Messages" component={MessagesOverview} />}
+                    </Tab.Screen>
+                    <Tab.Screen name="Menu">
+                        {() => <MenuStackNavigator name="Menu" component={MenuView} />}
+                    </Tab.Screen>
                 </>
             ) : (
                 <Tab.Screen name="Login" component={LoginView} />
@@ -78,19 +90,33 @@ const BottomTabs: React.FC = () => {
     )
 }
 
+type MenuStackProps = { name: string; component: React.FC<{}> }
+
+const MenuStackNavigator: React.FC<MenuStackProps> = ({ name, component }) => {
+    return (
+        <MenuStack.Navigator screenOptions={{ headerShown: false }}>
+            <MenuStack.Screen name={name} component={component} />
+            <MenuStack.Screen name="PropertyDetails" component={PropertyDetails} />
+            <MenuStack.Screen name="My Properties" component={UserProperties} />
+            <MenuStack.Screen name="MessageConversation" component={MessageView} />
+        </MenuStack.Navigator>
+    );
+};
+
 const RootNavigator: React.FC = () => {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Tabs" component={BottomTabs} />
-            <Stack.Screen name="PropertyDetails" component={PropertyDetails} />
+            {/* <Stack.Screen name="PropertyDetails" component={PropertyDetails} />
+            <Stack.Screen name="My Properties" component={UserProperties} /> */}
         </Stack.Navigator>
     )
 }
 
-const MainViewJumbotron: React.FC = () => {
+const HeaderJumbotron: React.FC = () => {
     const mainViewJumbotron = useTypedSelector(selectMainViewJumbotron)
     const navigation = useNavigation<StackNavigationProp<RootStackParamList>>()
-    
+
     if (mainViewJumbotron.visibility === 0) return null
 
     return (
@@ -154,7 +180,7 @@ export const MainView: React.FC = () => {
 
     return (
         <NavigationContainer>
-            <MainViewJumbotron />
+            <HeaderJumbotron />
 
             <SafeAreaView style={styles.container}>
                 {isAppReady ? (
