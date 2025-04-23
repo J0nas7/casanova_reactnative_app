@@ -5,6 +5,7 @@ import { Picker } from "@react-native-picker/picker";
 import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 
 // Internal
 import { usePropertiesContext } from "@/src/Contexts";
@@ -12,7 +13,6 @@ import { Property, PropertyFields, PropertyStates, propertyTypeMap } from "@/src
 import { selectAuthUser } from "@/src/Redux";
 import { RootStackParamList } from "./MainView";
 import useMainViewJumbotron from "../Hooks/useMainViewJumbotron";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 
 export const EditProperty: React.FC = () => {
     // Hooks

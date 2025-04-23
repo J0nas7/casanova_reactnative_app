@@ -14,6 +14,7 @@ npm install:
     @react-navigation/bottom-tabs react-native-paper
 
     @react-native-picker/picker
+    react-native-maps
     
 
 
@@ -84,7 +85,6 @@ Xcode Derived Data:
 ~/Library/Developer/Xcode/DerivedData
 
 Before AirDrop sharing:
-rm -f package-lock.json
 rm -rf node_modules
 rm -rf ios/Pods
 rm -rf ios/build

@@ -1,9 +1,9 @@
 // External
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { View, ScrollView, Text, Button, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, Keyboard, Platform, Animated, RefreshControl } from 'react-native'
+import { View, ScrollView, Text, Button, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, Keyboard, Platform, Animated, RefreshControl, ImageBackground } from 'react-native'
 import { useFocusEffect, useRoute } from '@react-navigation/native'
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faSliders } from '@fortawesome/free-solid-svg-icons';
+import { faMap, faSliders } from '@fortawesome/free-solid-svg-icons';
 
 // Internal
 import { usePropertiesContext } from '@/src/Contexts'
@@ -14,14 +14,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
 import { AppDispatch, selectMainViewJumbotron, setMainViewJumbotron, useTypedSelector } from '../Redux';
 import useMainViewJumbotron from '../Hooks/useMainViewJumbotron';
+import { SearchPropertyMap } from '../Components/Partials/properties/SearchPropertyMap';
 
-interface Filters {
+export interface Filters {
     propertyType: string
     city: string
     minPrice: string
     maxPrice: string
     bedrooms: string
     bathrooms: string
+    view: string
 }
 
 export const SearchListingsView: React.FC = () => {
@@ -39,6 +41,7 @@ export const SearchListingsView: React.FC = () => {
         maxPrice: routeParams?.maxPrice || '',
         bedrooms: routeParams?.bedrooms || '',
         bathrooms: routeParams?.bathrooms || '',
+        view: routeParams?.bathrooms || 'list',
     })
 
     const { properties, readProperties } = usePropertiesContext()
@@ -126,25 +129,18 @@ export const SearchListingsView: React.FC = () => {
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
         >
-            <TouchableOpacity onPress={openModal} style={styles.headline}>
-                <Text style={{ fontWeight: 'bold' }}>
-                    {properties.length} Listings
-                </Text>
-                <Text>
-                    <FontAwesomeIcon icon={faSliders} size={20} />
-                </Text>
-            </TouchableOpacity>
-
-            {/* Listings Section */}
-            <View style={styles.listings}>
-                {filteredProperties.length > 0 ? (
-                    filteredProperties.map((property) => (
-                        <PropertyCard key={property.Property_ID} property={property} />
-                    ))
-                ) : (
-                    <Text style={styles.noResults}>No properties found. Try adjusting your filters.</Text>
-                )}
-            </View>
+            {filters.view === 'list' ? (
+                <SearchPropertyList
+                    filteredProperties={filteredProperties}
+                    openModal={openModal}
+                    updateFilter={updateFilter}
+                />
+            ) : filters.view === 'map' ? (
+                <SearchPropertyMap 
+                    properties={filteredProperties}
+                    updateFilter={updateFilter}
+                />
+            ) : null}
 
             {/* Filters Modal Section */}
             <Modal
@@ -240,6 +236,53 @@ export const SearchListingsView: React.FC = () => {
     )
 }
 
+interface PropertyListProps {
+    filteredProperties: Property[];
+    openModal: () => void
+    updateFilter: (key: keyof Filters, value: string) => void
+}
+
+const SearchPropertyList: React.FC<PropertyListProps> = ({ filteredProperties, openModal, updateFilter }) => {
+    return (
+        <>
+            <TouchableOpacity onPress={openModal} style={styles.headline}>
+                <Text style={{ fontWeight: 'bold' }}>
+                    {filteredProperties.length} Listings
+                </Text>
+                <Text>
+                    <FontAwesomeIcon icon={faSliders} size={20} />
+                </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={{ marginBottom: 12 }}
+                onPress={() => updateFilter("view", "map")}
+            >
+                <ImageBackground
+                    source={require('@/src/Assets/DK.jpg')}
+                    resizeMode="cover"
+                    style={styles.mapButton}
+                    imageStyle={{ borderRadius: 12 }}
+                >
+                    <FontAwesomeIcon icon={faMap} />
+                    <Text style={{ marginLeft: 8 }}>Map</Text>
+                </ImageBackground>
+            </TouchableOpacity>
+
+            {/* Listings Section */}
+            <View style={styles.listings}>
+                {filteredProperties.length > 0 ? (
+                    filteredProperties.map((property) => (
+                        <PropertyCard key={property.Property_ID} property={property} />
+                    ))
+                ) : (
+                    <Text style={styles.noResults}>No properties found. Try adjusting your filters.</Text>
+                )}
+            </View>
+        </>
+    )
+}
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -260,6 +303,22 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '600',
         marginBottom: 12,
+    },
+    mapButton: {
+        backgroundColor: '#FEF3C7',
+        paddingVertical: 24,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+        marginBottom: 12,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
     },
     listings: {
         marginTop: 8,

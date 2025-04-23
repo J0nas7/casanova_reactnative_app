@@ -1,6 +1,7 @@
 // External
 import React, { use, useEffect } from 'react'
 import { View, StyleSheet, SafeAreaView, ActivityIndicator, Text, TouchableOpacity } from 'react-native'
+import SplashScreen from 'react-native-splash-screen'
 import { NavigationContainer, useNavigation } from '@react-navigation/native'
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
@@ -13,7 +14,6 @@ import { AppDispatch, selectAuthUser, selectMainViewJumbotron, setMainViewJumbot
 import { useAuth } from '@/src/Hooks'
 import { LoginView, SearchListingsView, Startpage, UserProperties } from './'
 import PropertyDetails from './PropertyDetails'
-import { useDispatch } from 'react-redux'
 import { MenuView } from './MenuView'
 import { MessagesOverview } from './MessagesOverview'
 import { MessageView } from './MessageView'
@@ -180,6 +180,10 @@ const HeaderJumbotron: React.FC = () => {
 
 export const MainView: React.FC = () => {
     const isAppReady = true         // Placeholder: toggle for loading screen
+
+    useEffect(() => {
+        SplashScreen.hide()
+    }, [])
 
     return (
         <NavigationContainer>
