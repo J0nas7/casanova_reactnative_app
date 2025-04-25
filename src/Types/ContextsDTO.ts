@@ -8,6 +8,7 @@ export type User = {
     User_Role: 'Administrator' | 'Landlord' | 'Tenant';
     User_Profile_Picture?: string | null;
     User_Address?: string;
+    User_Phone_Number?: string | null;
     User_CreatedAt?: string;
     User_UpdatedAt?: string;
     User_DeletedAt?: string;
@@ -43,6 +44,7 @@ export type Property = {
     Property_Amenities: string[];
     Property_Property_Type: number;
     Property_Available_From: string;
+    Property_Available_To: string;
     Property_Is_Active: boolean;
     Property_CreatedAt?: string;
     Property_UpdatedAt?: string;
@@ -59,7 +61,7 @@ export type PropertyFields =
     "Property_Address" | "Property_City" | "Property_Zip_Code" |
     "Property_Latitude" | "Property_Longitude" | "Property_Price_Per_Month" |
     "Property_Num_Bedrooms" | "Property_Num_Bathrooms" | "Property_Square_Feet" |
-    "Property_Amenities" | "Property_Property_Type" | "Property_Available_From" |
+    "Property_Amenities" | "Property_Property_Type" | "Property_Available_From" | "Property_Available_To" |
     "Property_Is_Active" | "Property_CreatedAt" | "Property_UpdatedAt";
 
 export type PropertyStates = Property|undefined|false
@@ -97,8 +99,10 @@ export type Message = {
     Receiver_ID: number;
     Property_ID?: number;
     Message_Text: string;
+    Message_Read_At?: string;
     Message_CreatedAt?: string;
     Message_UpdatedAt?: string;
+    Message_DeletedAt?: string;
 
     // Relationships
     sender?: User;

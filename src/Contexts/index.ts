@@ -1,2 +1,2 @@
-export * from './RecourseContext'
+export * from './ResourceContext'
 export * from './useResourceContext'

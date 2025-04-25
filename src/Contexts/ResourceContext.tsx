@@ -120,6 +120,7 @@ export const PropertiesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         addItem: addProperty,
         saveItemChanges: savePropertyChanges,
         removeItem: removeProperty,
+        executeSql
         // loading: propertyLoading,
         // error: propertyError,
     } = useResourceContext<Property, "Property_ID">(
@@ -127,6 +128,49 @@ export const PropertiesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         "Property_ID",
         "users"
     );
+
+    const setupTables = async () => {
+        await executeSql(`DROP TABLE IF EXISTS properties`);
+        await executeSql(`DROP TABLE IF EXISTS users`);
+        await executeSql(`DROP TABLE IF EXISTS images`);
+        await executeSql(`DROP TABLE IF EXISTS messages`);
+        await executeSql(`DROP TABLE IF EXISTS favorites`);
+
+        // Create properties table
+        await executeSql(`
+            CREATE TABLE IF NOT EXISTS properties (
+                Property_ID INTEGER PRIMARY KEY,
+                User_ID INTEGER,
+                Property_Title TEXT,
+                Property_Description TEXT,
+                Property_Address TEXT,
+                Property_City TEXT,
+                Property_Zip_Code TEXT,
+                Property_Latitude REAL,
+                Property_Longitude REAL,
+                Property_Price_Per_Month REAL,
+                Property_Num_Bedrooms INTEGER,
+                Property_Num_Bathrooms INTEGER,
+                Property_Square_Feet INTEGER,
+                Property_Amenities TEXT,
+                Property_Property_Type INTEGER,
+                Property_Available_From TEXT,
+                Property_Available_To TEXT,
+                Property_Is_Active INTEGER,
+                Property_CreatedAt TEXT,
+                Property_UpdatedAt TEXT,
+                Property_DeletedAt TEXT,
+
+                user TEXT,
+                images TEXT,
+                messages TEXT,
+                favorites TEXT,
+
+                FOREIGN KEY (User_ID) REFERENCES users(User_ID)
+            );
+        `);
+    }
+    setupTables()
 
     const createPropertyWithImages = async (property: Property, images: any[]) => {
         console.log("createPropertyWithImages", property, images)

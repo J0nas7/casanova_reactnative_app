@@ -10,20 +10,55 @@ export const useResourceContext = <T extends { [key: string]: any }, IDKey exten
     idFieldName: IDKey,
     parentResource: string
 ) => {
-    const { fetchItems, fetchItemsByParent, fetchItem, postItem, updateItem, deleteItem } = useTypeAPI<T, IDKey>(resource, idFieldName, parentResource)
+    const {
+        getItemsFromSQLite,
+        upsertItemsToSQLite,
+        fetchItems, 
+        fetchItemsByParent, 
+        fetchItem, 
+        postItem, 
+        updateItem, 
+        deleteItem,
+        //setupTables,
+        executeSql,
+        isOnline
+    } = useTypeAPI<T, IDKey>(resource, idFieldName, parentResource)
+
+    // React.useEffect(() => {
+    //     const initializeTables = async () => {
+    //         await setupTables();
+    //     };
+    //     initializeTables();
+    // }, []);
 
     const [items, setItems] = useState<T[]>([])
     const [itemsById, setItemsById] = useState<T[]>([])
     const [itemById, setItemById] = useState<T | undefined | false>(undefined)
     const [newItem, setNewItem] = useState<T | undefined>(undefined)
     const [itemDetail, setItemDetail] = useState<T | undefined>(undefined)
-
+    
     const readItems = async (refresh?: boolean) => {
         if (refresh) setItems([])
-
-        const data = await fetchItems() // Fetch all items
-        console.log("readItems", data)
-        if (data) setItems(data)
+    
+        // 1. Always read from SQLite first
+        const localData = await getItemsFromSQLite()
+        if (localData) setItems(localData)
+    
+        // 2. Try syncing from API if online
+        if (await isOnline()) {
+            try {
+                const remoteData = await fetchItems()
+                if (Array.isArray(remoteData)) {
+                    await upsertItemsToSQLite(remoteData);
+                    const updatedLocal = await getItemsFromSQLite();
+                    setItems(updatedLocal);
+                } else {
+                    console.warn(`[${resource}] Remote data is not an array. Skipping sync.`);
+                }
+            } catch (error) {
+                console.warn(`[${resource}] Sync failed, using offline data`, error)
+            }
+        }
     }
 
     const readItemsById = async (parentId: number, refresh?: boolean) => {
@@ -102,6 +137,7 @@ export const useResourceContext = <T extends { [key: string]: any }, IDKey exten
         addItem,
         saveItemChanges,
         removeItem,
+        executeSql
     }
 }
 

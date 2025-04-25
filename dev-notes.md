@@ -16,6 +16,16 @@ npm install:
     @react-native-picker/picker
     react-native-maps
     
+    react-native-sqlite-storage
+    @react-native-community/netinfo
+
+    --save-dev:
+        babel-plugin-module-resolver
+        @types/react-native-sqlite-storage
+    
+
+
+
 
 
 
@@ -38,10 +48,6 @@ npm install:
     react-native-notifications
 
     --save-dev:
-        babel-plugin-module-resolver
-
-
-        
         @types/react-native-push-notification
         @types/react-native-safari-view
 

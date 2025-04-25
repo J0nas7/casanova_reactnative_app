@@ -124,6 +124,7 @@ export const EditProperty: React.FC = () => {
                     onPress: async () => {
                         const updated = await updatePropertyAvailability(renderProperty, {
                             Property_Available_From: renderProperty.Property_Available_From,
+                            Property_Available_To: renderProperty.Property_Available_To,
                             Property_Is_Active: !renderProperty.Property_Is_Active
                         });
 
