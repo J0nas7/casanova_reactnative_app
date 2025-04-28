@@ -10,7 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faBars, faEnvelope, faHome, faKey, faSearch, faUser } from '@fortawesome/free-solid-svg-icons'
 
 // Internal
-import { AppDispatch, selectAuthUser, selectMainViewJumbotron, setMainViewJumbotron, useTypedSelector } from '../Redux'
+import { AppDispatch, selectIsLoggedIn, selectMainViewJumbotron, setMainViewJumbotron, useTypedSelector } from '../Redux'
 import { useAuth } from '@/src/Hooks'
 import { LoginView, SearchListingsView, Startpage, UserProperties } from './'
 import PropertyDetails from './PropertyDetails'
@@ -18,6 +18,7 @@ import { MenuView } from './MenuView'
 import { MessagesOverview } from './MessagesOverview'
 import { MessageView } from './MessageView'
 import EditProperty from './EditProperty'
+import { Snackbar } from '../Components/UI/Snackbar'
 
 export type RootStackParamList = {
     Tabs: undefined
@@ -36,9 +37,39 @@ const Tab = createBottomTabNavigator()
 const Stack = createStackNavigator<RootStackParamList>()
 const MenuStack = createNativeStackNavigator();
 
+type MenuStackProps = { name: string; component: React.FC<{}> }
+
 const BottomTabs: React.FC = () => {
     const { } = useAuth()
-    const authUser = useTypedSelector(selectAuthUser)
+    const isLoggedIn = useTypedSelector(selectIsLoggedIn)
+
+    const ScreenWithJumbotron: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+        <>
+            <HeaderJumbotron />
+            {children}
+            <Snackbar />
+        </>
+    );
+
+    const withJumbotron = (Component: React.FC): React.FC => {
+        return (props: any) => (
+            <ScreenWithJumbotron>
+                <Component {...props} />
+            </ScreenWithJumbotron>
+        );
+    };
+
+    const MenuStackNavigator: React.FC<MenuStackProps> = ({ name, component }) => {
+        return (
+            <MenuStack.Navigator screenOptions={{ headerShown: false }}>
+                <MenuStack.Screen name={name} component={withJumbotron(component)} />
+                <MenuStack.Screen name="PropertyDetails" component={withJumbotron(PropertyDetails)} />
+                <MenuStack.Screen name="EditProperty" component={withJumbotron(EditProperty)} />
+                <MenuStack.Screen name="My Properties" component={withJumbotron(UserProperties)} />
+                <MenuStack.Screen name="MessageConversation" component={withJumbotron(MessageView)} />
+            </MenuStack.Navigator>
+        );
+    };
 
     return (
         <Tab.Navigator
@@ -76,7 +107,7 @@ const BottomTabs: React.FC = () => {
             <Tab.Screen name="Search">
                 {() => <MenuStackNavigator name="Search" component={SearchListingsView} />}
             </Tab.Screen>
-            {authUser ? (
+            {isLoggedIn ? (
                 <>
                     <Tab.Screen name="Messages">
                         {() => <MenuStackNavigator name="Messages" component={MessagesOverview} />}
@@ -86,25 +117,11 @@ const BottomTabs: React.FC = () => {
                     </Tab.Screen>
                 </>
             ) : (
-                <Tab.Screen name="Login" component={LoginView} />
+                <Tab.Screen name="Login" component={withJumbotron(LoginView)} />
             )}
         </Tab.Navigator>
     )
 }
-
-type MenuStackProps = { name: string; component: React.FC<{}> }
-
-const MenuStackNavigator: React.FC<MenuStackProps> = ({ name, component }) => {
-    return (
-        <MenuStack.Navigator screenOptions={{ headerShown: false }}>
-            <MenuStack.Screen name={name} component={component} />
-            <MenuStack.Screen name="PropertyDetails" component={PropertyDetails} />
-            <MenuStack.Screen name="EditProperty" component={EditProperty} />
-            <MenuStack.Screen name="My Properties" component={UserProperties} />
-            <MenuStack.Screen name="MessageConversation" component={MessageView} />
-        </MenuStack.Navigator>
-    );
-};
 
 const RootNavigator: React.FC = () => {
     return (
@@ -187,9 +204,8 @@ export const MainView: React.FC = () => {
 
     return (
         <NavigationContainer>
-            <HeaderJumbotron />
-
-            <SafeAreaView style={styles.container}>
+            {/* <SafeAreaView style={styles.container}> */}
+            <View style={styles.container}>
                 {isAppReady ? (
                     <RootNavigator />
                 ) : (
@@ -197,7 +213,7 @@ export const MainView: React.FC = () => {
                         <ActivityIndicator size="large" color="#000" />
                     </View>
                 )}
-            </SafeAreaView>
+            </View>
         </NavigationContainer>
     )
 }

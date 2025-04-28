@@ -25,7 +25,7 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
 ) => {
     // Hooks
     const { httpGetRequest, httpPostWithData, httpPutWithData, httpDeleteRequest } = useAxios()
-    
+
     const dbPromise: Promise<SQLiteDatabase> = new Promise((resolve, reject) => {
         const db = SQLite.openDatabase(
             {
@@ -54,11 +54,16 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
             return false;
         }
     };
-    
+
     const getItemsFromSQLite = async (
         otherResource?: string,
         parentKey?: string,
-        parentValue?: string
+        parentValue?: string,
+        singularMapping?: {
+            join: string;
+            on: string;
+        } | undefined,
+        deepEager: boolean = false
     ): Promise<T[]> => {
         try {
             // Construct base query
@@ -73,10 +78,10 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
             console.log(`getItemsFromSQLite ${otherResource ?? resource}`, items);
 
             // If fetching another resource, return directly
-            if (otherResource) return items;
+            if (otherResource && !deepEager) return items;
 
             // Process items and relationships
-            const itemsWithRelations = await processItemsWithRelations(items);
+            const itemsWithRelations = await processItemsWithRelations(items, undefined, singularMapping, otherResource);
 
             console.log("itemsWithRelations0", itemsWithRelations[0]);
             return itemsWithRelations;
@@ -87,52 +92,156 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
         }
     };
 
-    // Helper function to process items and add relationships
-    const processItemsWithRelations = async (items: any[]): Promise<any[]> => {
-        return Promise.all(
-            items.map(async (item) => {
-                const itemId = item[`${String(idFieldName)}`]; // e.g., _ID
-                const related: Record<string, any> = {};
+    const getItemsByIdFromSQLite = async (
+        parentIdFieldName: string | string[],
+        parentId: number,
+        parentRelation: string | undefined,
+        singularKeys: {
+            [key: string]: { join: string; on: string };
+        } | undefined,
+        otherResource?: string,
+        parentKey?: string,
+        parentValue?: string,
+    ): Promise<T[]> => {
+        try {
+            // Construct base query
+            let query = `SELECT * FROM ${otherResource ?? resource} WHERE `;
 
-                // Extract relationships
-                const relationships = Object.entries(item).filter(([key, value]) =>
-                    !key.includes('_') && value !== undefined
-                );
+            if (otherResource && parentKey && parentValue) {
+                query += `${parentKey} = ${parentValue}`;
+            } else if (typeof parentIdFieldName === 'string') {
+                query += `${parentIdFieldName} = ${parentId}`;
+            } else if (Array.isArray(parentIdFieldName)) {
+                query += parentIdFieldName.map(field => `${field} = ${parentId}`).join(` ${parentRelation} `);
+            }
 
-                // Process relationships if they exist
-                if (relationships.length > 0) {
-                    console.log("relationGetShips", relationships, idFieldName, itemId);
-                    for (const [relationKey, relationValue] of relationships) {
-                        // Skip non-collection relationships
-                        if (!relationKey.endsWith('s')) continue;
+            // Execute query
+            const results = await executeSql(query); // Abstracted SQLite call
+            const items = results.rows.raw() || [];
 
-                        // Resolve related data for one-to-many and one-to-one relationships
-                        const tableName = relationKey.endsWith('s') ? relationKey : `${relationKey}s`;
-                        console.log("relationGetRelation", relationKey, relationValue, tableName);
+            // If fetching another resource, return directly
+            if (otherResource) return items;
 
-                        // Resolve the related data (e.g., images, favorites, etc.)
-                        related[tableName] = await getItemsFromSQLite(tableName, idFieldName.toString(), itemId);
-                        console.log(`eager ${tableName}`, related[tableName]);
-                    }
-                    console.log("relationGetRelated", related);
-                }
+            // Process items and relationships
+            const itemsWithRelations = await processItemsWithRelations(items, singularKeys, undefined, otherResource);
 
-                // Merge original item with related data
-                const data = { ...item, ...related };
-                console.log("relationGetData", data);
+            console.log("itemsWithRelations0", itemsWithRelations[0]);
+            return itemsWithRelations;
 
-                return data;
-            })
-        );
+        } catch (error: any) {
+            console.error(`Failed to getItemsByIdFromSQLite for ${resource}`, error);
+            return [];
+        }
     };
 
-    const upsertItemsToSQLite = async (items: T[], otherResource?: string) => {
+    const getItemFromSQLite = async (
+        id: number | string,
+        otherResource?: string,
+        singularMapping?: {
+            join: string;
+            on: string;
+        },
+        deepEager: boolean = false
+    ): Promise<T | null> => {
+        try {
+            // Construct query to get a single item
+            const tableName = otherResource ?? resource;
+            const query = `SELECT * FROM ${tableName} WHERE ${idFieldName.toString()} = ${id}`;
+
+            // Execute query
+            const results = await executeSql(query);
+            const items = results.rows.raw() || [];
+            const item = items[0];
+
+            console.log(`getItemFromSQLite ${tableName}`, item);
+
+            if (!item) return null; // No item found
+
+            // If fetching from another resource and no deep eager loading requested, return directly
+            if (otherResource && !deepEager) return item;
+
+            // Process relationships if needed
+            const [itemWithRelations] = await processItemsWithRelations([item], undefined, singularMapping, otherResource);
+
+            console.log("itemWithRelations", itemWithRelations);
+            return itemWithRelations;
+
+        } catch (error: any) {
+            console.error(`Failed to getItemFromSQLite for ${resource}`, error);
+            return null;
+        }
+    };
+
+    // Helper function to process items and add relationships
+    const processItemsWithRelations = async (
+        items: any[],
+        singularKeys?: Record<string, { join: string; on: string }>,
+        inheritedSingularMapping?: { join: string; on: string },
+        otherResource?: string
+    ): Promise<any[]> => {
+        return Promise.all(items.map(async (item) => {
+            const itemId = item[String(idFieldName)];
+            const related: Record<string, any> = {};
+
+            const relationships = Object.entries(item).filter(([key, value]) =>
+                !key.includes('_') && value !== undefined
+            );
+
+            for (const [relationKey] of relationships) {
+                const singularMapping = singularKeys?.[relationKey];
+                const isPlural = relationKey.endsWith('s');
+                const tableName = singularMapping?.join || (isPlural ? relationKey : `${relationKey}s`);
+
+                const getRelatedItems = async () => {
+                    if (isPlural) {
+                        return otherResource
+                            ? await getItemsFromSQLite(
+                                tableName,
+                                inheritedSingularMapping?.on,
+                                item[inheritedSingularMapping?.on ?? '']
+                            )
+                            : await getItemsFromSQLite(
+                                tableName,
+                                idFieldName.toString(),
+                                itemId
+                            );
+                    } else if (singularMapping) {
+                        const result = await getItemsFromSQLite(
+                            tableName,
+                            singularMapping.on,
+                            itemId,
+                            singularMapping,
+                            true
+                        );
+                        return result[0] ?? null;
+                    }
+                    return null;
+                };
+
+                const relationData = await getRelatedItems();
+                if (relationData !== null) {
+                    related[isPlural ? tableName : relationKey] = relationData;
+                }
+            }
+
+            return { ...item, ...related };
+        }));
+    };
+
+    const upsertItemsToSQLite = async (
+        items: T[],
+        singularKeys: {
+            [key: string]: { join: string; on: string };
+        } | undefined,
+        otherResource?: string
+    ) => {
         try {
             if (!Array.isArray(items)) {
                 throw new TypeError(`Expected 'items' to be an array, got ${typeof items}`);
             }
 
             for (const item of items) {
+                console.log(`remoteItem ${otherResource ? 'otherResource'+otherResource : resource} upsert`, `${item.Message_ID}/${item.Property_ID}`)
                 // 1. Insert base resource fields
                 const filteredEntries = Object.entries(item).filter(([key]) => key.includes('_'));
                 const columns = filteredEntries.map(([key]) => key);
@@ -146,13 +255,15 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
                     VALUES (${placeholders})
                 `;
 
-                await executeSql(query, values);
+                const upserted = await executeSql(query, values)
 
                 if (!otherResource) {
                     // 2. Recursively upsert relationships
                     const promises: Promise<any>[] = [];
 
                     const relationships = Object.entries(item).filter(([key, value]) => {
+                        // Check if the key is a relationship (not containing '_')
+                        // Also check if the value is not null or undefined
                         return !key.includes('_') && value !== null && value !== undefined;
                     });
 
@@ -160,15 +271,26 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
 
                     // Loop through each relationship and add it to the related object
                     for (const [relationKey, relationValue] of relationships) {
-                        const tableName = relationKey.endsWith('s') ? relationKey : `${relationKey}s`;
-                        console.log("relationKeyUpsert", relationKey)
+                        let tableName = ""
+
+                        const singularMapping = singularKeys?.[relationKey as keyof typeof singularKeys];
+
+                        if (relationKey.endsWith('s')) {
+                            tableName = relationKey
+                        } else if (singularMapping) {
+                            tableName = singularMapping.join;
+                        } else {
+                            tableName = `${relationKey}s`;
+                        }
+
+                        console.log("relationKeyAndTableNameUpsert", relationKey, tableName)
                         console.log("relationValueUpsert", relationValue)
 
                         // If it's a one-to-many relationship (e.g., 'images', 'favorites'), ensure it's an array
                         if (Array.isArray(relationValue)) {
-                            promises.push(upsertItemsToSQLite(relationValue, tableName));
+                            promises.push(upsertItemsToSQLite(relationValue, undefined, tableName));
                         } else if (typeof relationValue === 'object') {
-                            promises.push(upsertItemsToSQLite([relationValue], tableName));
+                            promises.push(upsertItemsToSQLite([relationValue], undefined, tableName));
                         }
                     }
 
@@ -177,7 +299,7 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
             }
             console.log(`upsertItemsToSQLite ${otherResource ?? resource} - ${items.length} items`);
         } catch (error: any) {
-            console.error(`Failed to upsertItemsToSQLite for ${otherResource ?? resource}`, error);
+            console.error(`Failed to upsertItemsToSQLite for ${otherResource ?? resource}`, error, JSON.stringify(items));
         }
     };
 
@@ -309,126 +431,8 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
         });
     };
 
-    /**
-     * Sets up the necessary database tables for the application.
-     * 
-     * This method creates the following tables if they do not already exist:
-     * - `properties`: Stores information about properties, including details such as title, description, address, price, and associated user.
-     * - `users`: Stores user information, including personal details, email, and role.
-     * - `images`: Stores image metadata related to properties, such as image name, path, and URL.
-     * - `messages`: Stores messages exchanged between users, including sender, receiver, and property context.
-     * - `favorites`: Stores information about properties marked as favorites by tenants.
-     * 
-     * Each table includes fields for tracking creation, updates, and deletions.
-     * Foreign key relationships are defined where applicable.
-     * 
-     * @async
-     * @function setupTables
-     * @returns {Promise<void>} Resolves when all tables are successfully created.
-     */
-    /*const setupTables = async () => {
-        // Drop tables if exists
-        // Create properties table
-        await executeSql(`
-            CREATE TABLE IF NOT EXISTS properties (
-                Property_ID INTEGER PRIMARY KEY,
-                User_ID INTEGER,
-                Property_Title TEXT,
-                Property_Description TEXT,
-                Property_Address TEXT,
-                Property_City TEXT,
-                Property_Zip_Code TEXT,
-                Property_Latitude REAL,
-                Property_Longitude REAL,
-                Property_Price_Per_Month REAL,
-                Property_Num_Bedrooms INTEGER,
-                Property_Num_Bathrooms INTEGER,
-                Property_Square_Feet INTEGER,
-                Property_Amenities TEXT,
-                Property_Property_Type INTEGER,
-                Property_Available_From TEXT,
-                Property_Available_To TEXT,
-                Property_Is_Active INTEGER,
-                Property_CreatedAt TEXT,
-                Property_UpdatedAt TEXT,
-                Property_DeletedAt TEXT,
-
-                user TEXT,
-                images TEXT,
-                messages TEXT,
-                favorites TEXT,
-
-                FOREIGN KEY (User_ID) REFERENCES users(User_ID)
-            );
-        `);
-
-        // Create users table
-        await executeSql(`
-            CREATE TABLE IF NOT EXISTS users (
-                User_ID INTEGER PRIMARY KEY,
-                User_First_Name TEXT,
-                User_Last_Name TEXT,
-                User_Email TEXT,
-                User_Password TEXT,
-                User_Role TEXT,
-                User_Profile_Picture TEXT,
-                User_Address TEXT,
-                User_Phone_Number TEXT,
-                User_CreatedAt TEXT,
-                User_UpdatedAt TEXT,
-                User_DeletedAt TEXT
-            );
-        `);
-
-        // Create images table
-        await executeSql(`
-            CREATE TABLE IF NOT EXISTS images (
-                Image_ID INTEGER PRIMARY KEY,
-                Property_ID INTEGER,
-                Image_Name TEXT,
-                Image_Path TEXT,
-                Image_Type TEXT,
-                Image_URL TEXT,
-                Image_Order INTEGER,
-                Image_CreatedAt TEXT,
-                Image_UpdatedAt TEXT,
-                Image_DeletedAt TEXT
-            );
-        `);
-
-        // Create messages table
-        await executeSql(`
-            CREATE TABLE IF NOT EXISTS messages (
-                Message_ID INTEGER PRIMARY KEY,
-                Sender_ID INTEGER,
-                Receiver_ID INTEGER,
-                Property_ID INTEGER,
-                Message_Text TEXT,
-                Message_Read_At TEXT,
-                Message_CreatedAt TEXT,
-                Message_UpdatedAt TEXT,
-                Message_DeletedAt TEXT
-            );
-        `);
-
-        // Create favorites table
-        await executeSql(`
-            CREATE TABLE IF NOT EXISTS favorites (
-                Favorite_ID INTEGER PRIMARY KEY,
-                Tenant_ID INTEGER,
-                Property_ID INTEGER,
-                Favorite_CreatedAt TEXT,
-                Favorite_UpdatedAt TEXT,
-                Favorite_DeletedAt TEXT
-            );
-        `);
-    };*/
-
-    /**
-     * Checks the current network connectivity status.
-     *
-     * @returns {Promise<boolean>} A promise that resolves to `true` if the device is connected to the internet, otherwise `false`.
-     */
+    // Checks the current network connectivity status.
+    // A promise that resolves to `true` if the device is connected to the internet, otherwise `false`.
     const isOnline = async (): Promise<boolean> => {
         const state = await NetInfo.fetch();
         return state.isConnected ?? false;
@@ -437,6 +441,8 @@ export const useTypeAPI = <T extends { [key: string]: any }, IDKey extends keyof
     return {
         fetchItems,
         getItemsFromSQLite,
+        getItemsByIdFromSQLite,
+        getItemFromSQLite,
         upsertItemsToSQLite,
         fetchItemsByParent,
         fetchItem,

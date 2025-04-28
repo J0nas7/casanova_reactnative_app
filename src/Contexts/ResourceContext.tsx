@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState } from "react"
 import { useResourceContext } from "@/src/Contexts/useResourceContext"
 import { User, Property, PropertyImage, Message, Favorite, UserFields, PropertyFields, MessageFields, PropertyStates } from "@/src/Types"
 import { useAxios } from "@/src/Hooks";
+import { ResultSet } from "react-native-sqlite-storage";
 
 // Context for Users
 export type UsersContextType = {
@@ -43,13 +44,19 @@ export const UsersProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addItem: addUser,
         saveItemChanges: saveUserChanges,
         removeItem: removeUser,
+        executeSql
         // loading: userLoading,
         // error: userError,
     } = useResourceContext<User, "User_ID">(
         "users",
         "User_ID",
-        ""
+        "",
+        "",
+        undefined,
+        undefined
     );
+
+    setupOfflineTables(executeSql)
 
     return (
         <UsersContext.Provider value={{
@@ -124,53 +131,17 @@ export const PropertiesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         // loading: propertyLoading,
         // error: propertyError,
     } = useResourceContext<Property, "Property_ID">(
-        "properties",
-        "Property_ID",
-        "users"
+        "properties", // The resource name
+        "Property_ID", // The ID field name
+        "users", // The parent resource name
+        "User_ID", // The parent ID field name
+        undefined, // The parent relation
+        {
+            user: { join: "users", on: "User_ID" }
+        }
     );
 
-    const setupTables = async () => {
-        await executeSql(`DROP TABLE IF EXISTS properties`);
-        await executeSql(`DROP TABLE IF EXISTS users`);
-        await executeSql(`DROP TABLE IF EXISTS images`);
-        await executeSql(`DROP TABLE IF EXISTS messages`);
-        await executeSql(`DROP TABLE IF EXISTS favorites`);
-
-        // Create properties table
-        await executeSql(`
-            CREATE TABLE IF NOT EXISTS properties (
-                Property_ID INTEGER PRIMARY KEY,
-                User_ID INTEGER,
-                Property_Title TEXT,
-                Property_Description TEXT,
-                Property_Address TEXT,
-                Property_City TEXT,
-                Property_Zip_Code TEXT,
-                Property_Latitude REAL,
-                Property_Longitude REAL,
-                Property_Price_Per_Month REAL,
-                Property_Num_Bedrooms INTEGER,
-                Property_Num_Bathrooms INTEGER,
-                Property_Square_Feet INTEGER,
-                Property_Amenities TEXT,
-                Property_Property_Type INTEGER,
-                Property_Available_From TEXT,
-                Property_Available_To TEXT,
-                Property_Is_Active INTEGER,
-                Property_CreatedAt TEXT,
-                Property_UpdatedAt TEXT,
-                Property_DeletedAt TEXT,
-
-                user TEXT,
-                images TEXT,
-                messages TEXT,
-                favorites TEXT,
-
-                FOREIGN KEY (User_ID) REFERENCES users(User_ID)
-            );
-        `);
-    }
-    setupTables()
+    setupOfflineTables(executeSql)
 
     const createPropertyWithImages = async (property: Property, images: any[]) => {
         console.log("createPropertyWithImages", property, images)
@@ -307,13 +278,23 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addItem: addMessage,
         saveItemChanges: saveMessageChanges,
         removeItem: removeMessage,
+        executeSql
         // loading: messageLoading,
         // error: messageError,
     } = useResourceContext<Message, "Message_ID">(
         "messages",
         "Message_ID",
-        "users"
+        "users",
+        ["Sender_ID", "Receiver_ID"],
+        "OR",
+        {
+            sender: { join: "users", on: "User_ID" },
+            receiver: { join: "users", on: "User_ID" },
+            property: { join: "properties", on: "Property_ID" },
+        } // singularKeys
     );
+
+    setupOfflineTables(executeSql)
 
     return (
         <MessagesContext.Provider value={{
@@ -344,5 +325,112 @@ export const useMessagesContext = () => {
         throw new Error("useMessagesContext must be used within a MessagesProvider");
     }
     return context;
+};
+
+const setupOfflineTables = async (executeSql: (query: string, params?: any[]) => Promise<ResultSet>) => {
+    // await executeSql(`DROP TABLE IF EXISTS users`);
+    // await executeSql(`DROP TABLE IF EXISTS properties`);
+    // await executeSql(`DROP TABLE IF EXISTS images`);
+    // await executeSql(`DROP TABLE IF EXISTS favorites`);
+    // await executeSql(`DROP TABLE IF EXISTS messages`);
+
+    // Create users table
+    await executeSql(`
+        CREATE TABLE IF NOT EXISTS users (
+            User_ID INTEGER PRIMARY KEY,
+            User_First_Name TEXT,
+            User_Last_Name TEXT,
+            User_Email TEXT,
+            User_Password TEXT,
+            User_Role TEXT,
+            User_Profile_Picture TEXT,
+            User_Address TEXT,
+            User_Phone_Number TEXT,
+            User_CreatedAt TEXT,
+            User_UpdatedAt TEXT,
+            User_DeletedAt TEXT
+        );
+    `);
+
+    // Create properties table
+    await executeSql(`
+        CREATE TABLE IF NOT EXISTS properties (
+            Property_ID INTEGER PRIMARY KEY,
+            User_ID INTEGER,
+            Property_Title TEXT,
+            Property_Description TEXT,
+            Property_Address TEXT,
+            Property_City TEXT,
+            Property_Zip_Code TEXT,
+            Property_Latitude REAL,
+            Property_Longitude REAL,
+            Property_Price_Per_Month REAL,
+            Property_Num_Bedrooms INTEGER,
+            Property_Num_Bathrooms INTEGER,
+            Property_Square_Feet INTEGER,
+            Property_Amenities TEXT,
+            Property_Property_Type INTEGER,
+            Property_Available_From TEXT,
+            Property_Available_To TEXT,
+            Property_Is_Active INTEGER,
+            Property_CreatedAt TEXT,
+            Property_UpdatedAt TEXT,
+            Property_DeletedAt TEXT,
+
+            user TEXT,
+            images TEXT,
+            messages TEXT,
+            favorites TEXT,
+
+            FOREIGN KEY (User_ID) REFERENCES users(User_ID)
+        );
+    `);
+
+    // Create images table
+    await executeSql(`
+        CREATE TABLE IF NOT EXISTS images (
+            Image_ID INTEGER PRIMARY KEY,
+            Property_ID INTEGER,
+            Image_Name TEXT,
+            Image_Path TEXT,
+            Image_Type TEXT,
+            Image_URL TEXT,
+            Image_Order INTEGER,
+            Image_CreatedAt TEXT,
+            Image_UpdatedAt TEXT,
+            Image_DeletedAt TEXT
+        );
+    `);
+
+    // Create favorites table
+    await executeSql(`
+        CREATE TABLE IF NOT EXISTS favorites (
+            Favorite_ID INTEGER PRIMARY KEY,
+            Tenant_ID INTEGER,
+            Property_ID INTEGER,
+            Favorite_CreatedAt TEXT,
+            Favorite_UpdatedAt TEXT,
+            Favorite_DeletedAt TEXT
+        );
+    `);
+
+    // Create messages table
+    await executeSql(`
+        CREATE TABLE IF NOT EXISTS messages (
+            Message_ID INTEGER PRIMARY KEY,
+            Sender_ID INTEGER,
+            Receiver_ID INTEGER,
+            Property_ID INTEGER,
+            Message_Text TEXT,
+            Message_Read_At TEXT,
+            Message_CreatedAt TEXT,
+            Message_UpdatedAt TEXT,
+            Message_DeletedAt TEXT,
+
+            sender TEXT,
+            receiver TEXT,
+            property TEXT
+        );
+    `);
 };
 

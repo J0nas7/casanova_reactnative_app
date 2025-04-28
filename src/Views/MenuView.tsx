@@ -5,10 +5,12 @@ import { NavigationProp, useFocusEffect, useNavigation } from '@react-navigation
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faUser, faHome, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import { RootStackParamList } from './MainView';
+import { useAuth } from '../Hooks';
 
 export const MenuView = () => {
     // Hooks
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+    const { handleLogoutSubmit } = useAuth();
     const { handleFocusEffect } = useMainViewJumbotron({
         title: '',
         htmlIcon: '',
@@ -30,7 +32,7 @@ export const MenuView = () => {
     const menuItems = [
         { label: 'Profile', icon: faUser, action: () => handlePress('Profile') },
         { label: 'My Properties', icon: faHome, action: () => handlePress('My Properties') },
-        { label: 'Logout', icon: faSignOutAlt, action: () => handlePress('Logout') },
+        { label: 'Logout', icon: faSignOutAlt, action: () => handleLogoutSubmit() },
     ];
 
     return (

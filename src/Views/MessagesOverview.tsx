@@ -6,7 +6,7 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 
 // Internal
 import { useMessagesContext } from '@/src/Contexts';
-import { useTypedSelector, selectAuthUser } from '@/src/Redux';
+import { useTypedSelector, selectAuthUser, selectUserId } from '@/src/Redux';
 import { LoginView } from './LoginView';
 import useMainViewJumbotron from '../Hooks/useMainViewJumbotron';
 import { Message, Property, PropertyImage } from '../Types';
@@ -16,7 +16,7 @@ import { RefreshControl } from 'react-native-gesture-handler';
 export const MessagesOverview: React.FC = () => {
     // Hooks
     const { messagesById, readMessagesByUserId } = useMessagesContext();
-    const authUser = useTypedSelector(selectAuthUser);
+    const userId = useTypedSelector(selectUserId);
     const route = useRoute<any>();
     const { handleScroll, handleFocusEffect } = useMainViewJumbotron({
         title: 'Messages',
@@ -30,17 +30,17 @@ export const MessagesOverview: React.FC = () => {
     // Methods
     const onRefresh = useCallback(() => {
         setRefreshing(true)
-        if (authUser?.User_ID) {
-            readMessagesByUserId(authUser.User_ID);
+        if (userId) {
+            readMessagesByUserId(userId);
         }
     }, [])
 
     // Effects
     useEffect(() => {
-        if (authUser?.User_ID) {
-            readMessagesByUserId(authUser.User_ID);
+        if (userId) {
+            readMessagesByUserId(userId);
         }
-    }, [authUser]);
+    }, [userId]);
 
     useEffect(() => {
         if (messagesById.length > 0) {
@@ -54,13 +54,13 @@ export const MessagesOverview: React.FC = () => {
         }, [])
     )
 
-    if (!authUser?.User_ID) return <LoginView />;
+    if (!userId) return <LoginView />;
 
     return (
         <View style={styles.container}>
             <MessagesList
                 messages={messagesById}
-                authUserId={authUser.User_ID}
+                authUserId={userId}
                 handleScroll={handleScroll}
                 onRefresh={onRefresh}
                 refreshing={refreshing}
@@ -85,23 +85,35 @@ const MessagesList: React.FC<MessagesListProps> = ({
     refreshing
 }) => {
     const [uniqueProperties, setUniqueProperties] = useState<Record<number, Property>>({});
+    const [uniqueItems, setUniqueItems] = useState<Record<number, { message: Message; property: Property | undefined }>>({});
     const navigation = useNavigation<any>();
 
     useEffect(() => {
         if (Array.isArray(messages) && messages.length > 0) {
             const propertiesMap: Record<number, Property> = {};
+            const itemsMap: Record<number, { message: Message; property: Property | undefined }> = {};
+            
             messages.forEach((msg) => {
                 const property = msg.property;
-                if (property?.Property_ID) {
-                    propertiesMap[property.Property_ID] = property;
+                const propertyId = property?.Property_ID
+                const messagePropertyId = msg.Property_ID
+
+                const isUserRelated = msg.Sender_ID === Number(authUserId) || msg.Receiver_ID === Number(authUserId);
+                
+                if (messagePropertyId && isUserRelated) {
+                    itemsMap[messagePropertyId] = { message: msg, property};
+                }
+                if (propertyId && property) {
+                    propertiesMap[propertyId] = property;
                 }
             });
+            setUniqueItems(itemsMap);
             setUniqueProperties(propertiesMap);
         }
-    }, [messages]);
-
-    const properties = Object.values(uniqueProperties);
-
+    }, [messages])
+    
+    const items = Object.values(uniqueItems)
+    
     if (!messages.length) {
         return (
             <View style={styles.emptyWrapper}>
@@ -111,24 +123,24 @@ const MessagesList: React.FC<MessagesListProps> = ({
         );
     }
 
-    const renderItem = ({ item: property }: { item: Property }) => {
-        const image = property.images?.find((img: PropertyImage) => img.Image_Order === 1);
+    const renderItem = ({ item: {message, property} }: { item: { message: Message; property: Property | undefined } }) => {
+        const uniqueProperty = uniqueProperties[message.Property_ID ?? 0]
+        const image = uniqueProperty.images?.find((img: PropertyImage) => img.Image_Order === 1);
         const imageSrc = image?.Image_URL || `${env.url.API_URL}/storage/${image?.Image_Path}`;
 
         return (
             <TouchableOpacity
-                key={property.Property_ID}
+                key={message.Property_ID}
                 style={styles.item}
                 onPress={() => {
-                    if (property.Property_ID) {
-                        // navigation.navigate('MessageConversation', { property: property.Property_ID });
-                        navigation.navigate('MessageConversation', { propertyId: property.Property_ID.toString() })
+                    if (message.Property_ID) {
+                        navigation.navigate('MessageConversation', { propertyId: message.Property_ID.toString() })
                     }
                 }}
             >
                 <Image source={{ uri: imageSrc }} style={styles.image} />
                 <Text style={styles.propertyText}>
-                    {property.Property_Address} {property.Property_City}
+                    {uniqueProperty.Property_Address}, {uniqueProperty.Property_City}
                 </Text>
             </TouchableOpacity>
         );
@@ -136,11 +148,11 @@ const MessagesList: React.FC<MessagesListProps> = ({
 
     return (
         <View style={styles.wrapper}>
-            <Text style={styles.heading}>Messages ({properties.length})</Text>
+            <Text style={styles.heading}>Messages ({items.length})</Text>
             <FlatList
-                data={properties}
+                data={items}
                 renderItem={renderItem}
-                keyExtractor={(item: Property) => (item.Property_ID ?? 'unknown').toString()}
+                keyExtractor={(item: { message: Message; property: Property | undefined }) => (item.message.Property_ID ?? 'unknown').toString()}
                 onScroll={handleScroll}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

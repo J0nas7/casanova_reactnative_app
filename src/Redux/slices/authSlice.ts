@@ -14,17 +14,21 @@ export type MainViewJumbotronType = {
 interface AuthState {
     isLoggedIn: boolean | undefined;
     authUser: User | undefined;
+    userId: number | undefined;
     accessToken: string;
     refreshToken: string;
-    mainViewJumbotron: MainViewJumbotronType
+    mainViewJumbotron: MainViewJumbotronType;
+    appErrorMsg: string | undefined;
 }
 
 const initialState: AuthState = {
     isLoggedIn: undefined,
     authUser: undefined,
+    userId: undefined,
     accessToken: '',
     refreshToken: '',
-    mainViewJumbotron: { title: 'CasaNova', visibility: 100 }
+    mainViewJumbotron: { title: 'CasaNova', visibility: 100 },
+    appErrorMsg: undefined,
 }
 
 const authSlice = createSlice({
@@ -36,6 +40,9 @@ const authSlice = createSlice({
         },
         setAuthUser: (state, action: PayloadAction<any>) => {
             state.authUser = action.payload
+        },
+        setUserId: (state, action: PayloadAction<any>) => {
+            state.userId = action.payload
         },
         setAccessToken: (state, action: PayloadAction<string>) => {
             state.accessToken = action.payload
@@ -52,7 +59,10 @@ const authSlice = createSlice({
             }
 
             state.mainViewJumbotron = action.payload;
-        }
+        },
+        setAppErrorMsg: (state, action: PayloadAction<string | undefined>) => {
+            state.appErrorMsg = action.payload
+        },
     },
 })
 
@@ -60,15 +70,19 @@ const authSlice = createSlice({
 export const {
     setIsLoggedIn,
     setAuthUser,
+    setUserId,
     setAccessToken,
     setRefreshToken,
-    setMainViewJumbotron
+    setMainViewJumbotron,
+    setAppErrorMsg
 } = authSlice.actions
 
 export default authSlice.reducer
 
 export const selectIsLoggedIn = (state: RootState) => state.auth.isLoggedIn
 export const selectAuthUser = (state: RootState) => state.auth.authUser
+export const selectUserId = (state: RootState) => state.auth.userId
 export const selectAccessToken = (state: RootState) => state.auth.accessToken
 export const selectRefreshToken = (state: RootState) => state.auth.refreshToken
 export const selectMainViewJumbotron = (state: RootState) => state.auth.mainViewJumbotron
+export const selectAppErrorMsg = (state: RootState) => state.auth.appErrorMsg

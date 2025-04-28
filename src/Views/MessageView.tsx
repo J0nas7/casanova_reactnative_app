@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useMessagesContext } from '@/src/Contexts';
-import { AppDispatch, selectAuthUser, selectMainViewJumbotron, setMainViewJumbotron, useTypedSelector } from '@/src/Redux';
+import { AppDispatch, selectMainViewJumbotron, selectUserId, setMainViewJumbotron, useTypedSelector } from '@/src/Redux';
 import { Message, Property } from '@/src/Types';
 import { env } from '@/src/env';
 import { PropertyImage } from '../Types';
@@ -31,7 +31,7 @@ import { useDispatch } from 'react-redux';
 export const MessageView: React.FC = () => {
     // Hooks
     const { messagesById, readMessagesByUserId } = useMessagesContext();
-    const authUser = useTypedSelector(selectAuthUser);
+    const userId = useTypedSelector(selectUserId);
     const route = useRoute<any>();
     const { handleScroll, handleFocusEffect } = useMainViewJumbotron({
         title: 'Conversation',
@@ -45,22 +45,26 @@ export const MessageView: React.FC = () => {
     const { propertyId } = route.params as { propertyId: string };  // Get propertyId from route params
     const selectedProperty: Property | undefined = Array.isArray(messagesById)
         ? messagesById.find(
-            (msg) => msg.Property_ID?.toString() === propertyId
+            (msg) => msg.property?.Property_ID?.toString() === propertyId
         )?.property
         : undefined;
 
     // Methods
     const onRefresh = useCallback(() => {
         setRefreshing(true)
-        if (authUser?.User_ID) {
-            readMessagesByUserId(authUser.User_ID);
+        if (userId) {
+            readMessagesByUserId(userId);
         }
     }, [])
 
     // Effects
     useEffect(() => {
-        if (authUser?.User_ID) readMessagesByUserId(authUser.User_ID);
-    }, [authUser]);
+        if (userId) readMessagesByUserId(userId);
+    }, [userId]);
+
+    useEffect(() => {
+        console.log("Selected propertyId", propertyId, selectedProperty?.Property_ID)
+    }, [selectedProperty, propertyId]);
 
     useEffect(() => {
         if (messagesById.length > 0) {
@@ -74,7 +78,7 @@ export const MessageView: React.FC = () => {
         }, [])
     )
 
-    if (!authUser?.User_ID) return <LoginView />;
+    if (!userId) return <LoginView />;
 
     return (
         <View style={styles.messagesWrapper}>
@@ -82,7 +86,7 @@ export const MessageView: React.FC = () => {
                 <MessageConversation
                     messages={messagesById}
                     selectedProperty={selectedProperty}
-                    authUserId={authUser?.User_ID}
+                    authUserId={userId}
                     handleScroll={handleScroll}
                     onRefresh={onRefresh}
                     refreshing={refreshing}
@@ -123,7 +127,7 @@ const MessageConversation: React.FC<MessageConversationProps> = ({
     // Redux
     const dispatch = useDispatch<AppDispatch>();
     const mainViewJumbotron = useTypedSelector(selectMainViewJumbotron);
-    const authUser = useTypedSelector(selectAuthUser);
+    const userId = useTypedSelector(selectUserId);
 
     // State
     const [conversation, setConversation] = useState<Message[]>([]);
@@ -132,43 +136,48 @@ const MessageConversation: React.FC<MessageConversationProps> = ({
 
     // Methods
     const handleMessageSend = async () => {
-        if (!authUser || !authUser.User_ID || !selectedProperty.Property_ID) {
+        if (!userId || !selectedProperty.Property_ID) {
             Alert.alert("User or Property ID is missing. Try again.");
             return
         }
-        
+
         const messageData: Message = {
-            Sender_ID: authUser.User_ID,
+            Sender_ID: userId,
             Receiver_ID: selectedProperty.User_ID,
             Property_ID: selectedProperty.Property_ID,
             Message_Text: typeMessage
         };
-        
+
         setTypeMessage(""); // Clear the message after sending
         Keyboard.dismiss // Close the composer
-        
+
         // Send the messageData to your backend or API
-        const messageSend = await addMessage(authUser.User_ID, messageData)
+        const messageSend = await addMessage(userId, messageData)
     }
 
     // Effects
-    useEffect(() => {
-        if (selectedProperty.User_ID) {
-            const filtered = messages
-                .filter(
-                    (msg) =>
-                        (msg.sender?.User_ID === selectedProperty.User_ID ||
-                            msg.receiver?.User_ID === selectedProperty.User_ID) &&
-                        msg.Property_ID === selectedProperty.Property_ID
-                )
-                .sort((a, b) =>
-                    new Date(a.Message_CreatedAt || 0).getTime() -
-                    new Date(b.Message_CreatedAt || 0).getTime()
-                );
+    useFocusEffect(
+        useCallback(() => {
+            setConversation([]); // Reset conversation on focus
 
-            setConversation(filtered);
-        }
-    }, [messages, selectedProperty]);
+            if (selectedProperty.User_ID) {
+                const filtered = messages
+                    .filter(
+                        (msg) => {
+                            return ((msg.Sender_ID === selectedProperty.User_ID) ||
+                                (msg.Receiver_ID === selectedProperty.User_ID)) &&
+                                Boolean(msg.Property_ID === selectedProperty.Property_ID)
+                        }
+                    )
+                    .sort((a, b) =>
+                        new Date(a.Message_CreatedAt || 0).getTime() -
+                        new Date(b.Message_CreatedAt || 0).getTime()
+                    );
+
+                setConversation(filtered);
+            }
+        }, [messages, selectedProperty])
+    )
 
     // Keyboard handling to adjust the view when the keyboard is shown
     useEffect(() => {

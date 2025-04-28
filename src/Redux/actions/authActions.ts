@@ -1,10 +1,14 @@
+// External
 import { Dispatch } from 'redux';
+import NetInfo from "@react-native-community/netinfo";
+
+// Internal
 import { setAuthUser, setIsLoggedIn } from '../slices/authSlice';
 import { useStorage, useAxios } from '@/src/Hooks';
 
 export const useAuthActions = () => {
     const { httpGetRequest } = useAxios();
-    const { deleteItem } = useStorage();
+    const { getItem, deleteItem } = useStorage();
 
     /**
      * @returns {Function} An asynchronous function to be dispatched, which updates the logged-in status.
@@ -29,7 +33,7 @@ export const useAuthActions = () => {
                 // Update the Redux store with the user's logged-in status and details
                 dispatch(setIsLoggedIn(true));
                 dispatch(setAuthUser(data.userData));
-            } else {
+            } else if (data.error === 'Not authenticated') {
                 // Handle user not logged in (clear stored tokens)
                 await deleteItem('accessToken'); // Remove token from AsyncStorage
                 dispatch(setIsLoggedIn(false));

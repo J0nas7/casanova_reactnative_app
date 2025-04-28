@@ -1,11 +1,10 @@
 // External
 import { useState, useEffect } from "react"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useDispatch } from "react-redux"
 import { useNavigation } from "@react-navigation/native"
 
 // Internal
-import { useAxios } from './'
+import { useAxios, useStorage } from './'
 import { apiResponseDTO, User } from "@/src/Types"
 import {
     setIsLoggedIn,
@@ -13,6 +12,7 @@ import {
     setAuthUser,
     AppDispatch,
     useAuthActions,
+    setUserId,
 } from '@/src/Redux'
 import { StackNavigationProp } from "@react-navigation/stack"
 import { RootStackParamList } from "../Views"
@@ -20,6 +20,7 @@ import { RootStackParamList } from "../Views"
 export const useAuth = () => {
     const { httpPostWithData } = useAxios()
     const { fetchIsLoggedInStatus } = useAuthActions()
+    const { setItem, deleteItem, getItem } = useStorage();
 
     const dispatch = useDispatch<AppDispatch>()
     const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -29,14 +30,16 @@ export const useAuth = () => {
 
     const saveLoginSuccess = async (loginData: any) => {
         const newAccessToken = loginData.accessToken
-        const newAuthUser = loginData.user
+        const newAuthUser: User = loginData.user
 
         console.log("saveLoginSuccess", newAccessToken, newAuthUser)
-        await AsyncStorage.setItem("accessToken", newAccessToken)
+        await setItem("accessToken", newAccessToken)
+        await setItem("userId", (newAuthUser.User_ID ?? "0").toString())
 
         dispatch(setAccessToken(newAccessToken))
         dispatch(setIsLoggedIn(true))
         dispatch(setAuthUser(newAuthUser))
+        dispatch(setUserId((newAuthUser.User_ID ?? "0").toString()))
 
         navigation.navigate("Home")  // Assuming "Home" is the screen name after login
         return true
@@ -97,24 +100,28 @@ export const useAuth = () => {
 
     const handleLogoutSubmit = async () => {
         // Clear user data
-        await AsyncStorage.removeItem("accessToken")
+        await deleteItem("accessToken")
         dispatch(setAccessToken(""))
         dispatch(setIsLoggedIn(false))
         dispatch(setAuthUser(undefined))
+        dispatch(setUserId(undefined))
         navigation.navigate("Login")  // Navigate to sign-in screen after logout
     }
 
     // Check if the user is logged in when the app starts
     useEffect(() => {
         const checkLoginStatus = async () => {
-            const accessToken = await AsyncStorage.getItem("accessToken")
-            if (accessToken) {
+            const accessToken = await getItem("accessToken")
+            const userId = await getItem("userId")
+            if (accessToken && userId) {
                 dispatch(setAccessToken(accessToken))
                 dispatch(setIsLoggedIn(true))
+                dispatch(setUserId(userId))
                 dispatch(fetchIsLoggedInStatus())
             } else {
                 dispatch(setAccessToken(""))
                 dispatch(setIsLoggedIn(false))
+                dispatch(setUserId(undefined))
             }
         }
 
